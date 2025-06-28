@@ -1,6 +1,10 @@
 package zeno
 
-import "github.com/valyala/fasthttp"
+import (
+	"net"
+
+	"github.com/valyala/fasthttp"
+)
 
 type Context struct {
 	RequestCtx *fasthttp.RequestCtx
@@ -59,4 +63,30 @@ func (c *Context) Param(name string) string {
 		}
 	}
 	return ""
+}
+
+func (c *Context) Params() map[string]string {
+	params := make(map[string]string)
+	for i, n := range c.pnames {
+		if i < len(c.pvalues) {
+			params[n] = c.pvalues[i]
+		}
+	}
+	return params
+}
+
+func (c *Context) Method() string {
+	return c.zeno.toString(c.RequestCtx.Method())
+}
+
+func (c *Context) Path() string {
+	return c.zeno.toString(c.RequestCtx.Path())
+}
+
+func (c *Context) Port() string {
+	_, port, err := net.SplitHostPort(c.RequestCtx.RemoteAddr().String())
+	if err != nil {
+		return ""
+	}
+	return port
 }
