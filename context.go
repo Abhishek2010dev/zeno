@@ -1,6 +1,7 @@
 package zeno
 
 import (
+	"mime/multipart"
 	"net"
 
 	"github.com/valyala/fasthttp"
@@ -122,4 +123,16 @@ func (c *Context) HeaderMap() map[string]string {
 		m[c.zeno.toString(key)] = c.zeno.toString(value)
 	})
 	return m
+}
+
+func (c *Context) FormValue(key string) string {
+	return c.zeno.toString(c.RequestCtx.FormValue(key))
+}
+
+func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
+	return c.RequestCtx.FormFile(key)
+}
+
+func (c *Context) MultipartForm() (*multipart.Form, error) {
+	return c.RequestCtx.MultipartForm()
 }
