@@ -4,19 +4,19 @@
 package zeno
 
 import (
+	"bytes"
 	"math"
 	"regexp"
-	"strings"
 )
 
-// tree represents a routing tree used for storing and matching routes.
-// It consists of a root node and a counter for insertion order.
+// tree represents a routing tree used to store and match HTTP routes.
+// Each tree corresponds to a specific HTTP method (e.g. GET, POST).
 type tree struct {
-	root  *node
-	count int
+	root  *node // root node of the routing tree
+	count int   // total number of routes inserted
 }
 
-// newTree creates and returns a new empty routing tree.
+// newTree creates and returns a new empty routing tree with an initialized root node.
 func newTree() *tree {
 	return &tree{
 		root: &node{
@@ -29,44 +29,45 @@ func newTree() *tree {
 	}
 }
 
-// Add inserts a new route into the tree with its corresponding handler chain.
+// Add inserts a new route path and its associated handler chain into the tree.
+// The key must be a byte slice representing the route path (e.g., []byte("/users/{id}").
 // It returns the number of named parameters in the route.
-func (t *tree) Add(key string, handlers []Handler) int {
+func (t *tree) Add(key []byte, handlers []Handler) int {
 	t.count++
 	return t.root.add(key, handlers, t.count)
 }
 
-// Get matches the given path against the routing tree, writing parameter values
-// to pvalues (which must be preallocated). It returns the matched handlers,
-// parameter names, and the match's insertion order.
-func (t *tree) Get(path string, pvalues []string) ([]Handler, []string) {
+// Get attempts to match the given path against the routing tree.
+// It fills the provided pvalues slice with extracted parameter values.
+// It returns the matched handler chain, ordered list of parameter names, and insertion order.
+func (t *tree) Get(path []byte, pvalues []string) ([]Handler, []string) {
 	d, names, _ := t.root.get(path, pvalues)
 	return d, names
 }
 
-// node represents a single node in the routing tree. It may represent a static
-// path segment, a parameterized segment, or a wildcard.
+// node represents a single node in the radix tree.
+// Nodes may represent static paths or parameterized segments like {id}, {slug:.*}, {file*}, or {name?}.
 type node struct {
-	static   bool           // true if the node is a static literal
-	optional bool           // true if the param is optional (e.g., {id?})
-	wildcard bool           // true if the param is a wildcard (e.g., {path*})
-	key      string         // literal or token
-	regex    *regexp.Regexp // compiled regex if the param has a pattern
+	static   bool           // true if the node is a static (literal) segment
+	optional bool           // true if the parameter is optional
+	wildcard bool           // true if the parameter captures the rest of the path
+	key      []byte         // the literal or token segment of the path
+	regex    *regexp.Regexp // compiled regex for pattern-matched parameters
 
-	handlers []Handler // handler chain for the route
-	order    int       // insertion order
-	minOrder int       // minimum order of any handler in subtree
+	handlers []Handler // list of handlers to be called on match
+	order    int       // insertion order of the route
+	minOrder int       // minimum order of any handler in subtree (used for prioritization)
 
 	children  []*node // static children (indexed by byte)
-	pchildren []*node // parameter children
+	pchildren []*node // parameterized children
 
-	pindex int      // index into pvalues
-	pnames []string // ordered list of parameter names
+	pindex int      // index of the parameter in the pvalues slice
+	pnames []string // list of parameter names in order of appearance
 }
 
-// add inserts a route into the tree, splitting nodes as needed.
-// It returns the number of parameters in the route.
-func (n *node) add(key string, handlers []Handler, order int) int {
+// add inserts a new route key into the radix tree recursively.
+// It returns the number of parameters added to the route.
+func (n *node) add(key []byte, handlers []Handler, order int) int {
 	matched := 0
 	for matched < len(key) && matched < len(n.key) && key[matched] == n.key[matched] {
 		matched++
@@ -82,7 +83,6 @@ func (n *node) add(key string, handlers []Handler, order int) int {
 
 	if matched == len(n.key) {
 		childKey := key[matched:]
-
 		if lit := n.children[childKey[0]]; lit != nil {
 			if pn := lit.add(childKey, handlers, order); pn >= 0 {
 				return pn
@@ -100,6 +100,7 @@ func (n *node) add(key string, handlers []Handler, order int) int {
 		return -1
 	}
 
+	// Split the current node into prefix and suffix
 	rest := n.key[matched:]
 	n1 := &node{
 		static:    true,
@@ -125,9 +126,9 @@ func (n *node) add(key string, handlers []Handler, order int) int {
 	return n.add(key, handlers, order)
 }
 
-// addChild creates and attaches a new child node to the current node for the
-// given path segment. It parses parameter tokens and patterns.
-func (n *node) addChild(key string, handlers []Handler, order int) int {
+// addChild creates and attaches a new child node for the given path segment.
+// It parses parameters (e.g. {id}, {slug:.*}, {name?}) and wildcards (e.g. {file*}).
+func (n *node) addChild(key []byte, handlers []Handler, order int) int {
 	p0, p1 := -1, -1
 	for i := 0; i < len(key); i++ {
 		switch key[i] {
@@ -136,13 +137,13 @@ func (n *node) addChild(key string, handlers []Handler, order int) int {
 		case '}':
 			if p0 >= 0 {
 				p1 = i
-				i = len(key)
+				i = len(key) // break
 			}
 		}
 	}
 
 	if p0 < 0 || p1 < 0 {
-		// No parameter, treat as static
+		// Static literal
 		lit := &node{
 			static:    true,
 			key:       key,
@@ -158,8 +159,8 @@ func (n *node) addChild(key string, handlers []Handler, order int) int {
 		return lit.pindex + 1
 	}
 
-	// Static prefix before parameter
 	if p0 > 0 {
+		// Static prefix before parameter
 		prefix := &node{
 			static:    true,
 			key:       key[:p0],
@@ -173,6 +174,7 @@ func (n *node) addChild(key string, handlers []Handler, order int) int {
 		return prefix.addChild(key[p0:], handlers, order)
 	}
 
+	// Parameter token
 	token := key[p0 : p1+1]
 	child := &node{
 		static:    false,
@@ -185,36 +187,36 @@ func (n *node) addChild(key string, handlers []Handler, order int) int {
 	}
 
 	raw := token[1 : len(token)-1]
-
-	// Handle wildcard
-	if strings.HasPrefix(raw, "*") && len(raw) > 1 {
-		raw = raw[1:] + "*"
+	if len(raw) > 1 && raw[0] == '*' {
+		raw = append(raw[1:], '*')
 	}
 
-	pname, pattern := raw, ""
-	if colon := strings.IndexByte(raw, ':'); colon >= 0 {
-		pname, pattern = raw[:colon], raw[colon+1:]
+	colon := bytes.IndexByte(raw, ':')
+	pname, pattern := raw, []byte{}
+	if colon >= 0 {
+		pname = raw[:colon]
+		pattern = raw[colon+1:]
 	}
 
-	if strings.HasSuffix(pname, "?") {
+	if len(pname) > 0 && pname[len(pname)-1] == '?' {
 		child.optional = true
 		pname = pname[:len(pname)-1]
 	}
 
-	if strings.HasSuffix(pname, "*") {
+	if len(pname) > 0 && pname[len(pname)-1] == '*' {
 		child.wildcard = true
 		pname = pname[:len(pname)-1]
 		if p1+1 != len(key) {
-			panic("routing: wildcard parameter must be terminal in pattern: " + key)
+			panic("routing: wildcard parameter must be terminal in pattern: " + string(key))
 		}
 	}
 
-	if pattern != "" {
-		child.regex = regexp.MustCompile("^" + pattern)
+	if len(pattern) > 0 {
+		child.regex = regexp.MustCompile("^" + string(pattern))
 	}
 
 	names := append([]string{}, child.pnames...)
-	names = append(names, pname)
+	names = append(names, string(pname))
 	child.pnames = names
 	child.pindex = len(names) - 1
 
@@ -228,32 +230,32 @@ func (n *node) addChild(key string, handlers []Handler, order int) int {
 	return child.addChild(key[p1+1:], handlers, order)
 }
 
-// get attempts to match the given path against the current node and its children.
-// It fills pvalues with any captured parameter values and returns the matched
-// handler chain, parameter names, and order of match.
-func (n *node) get(path string, pvalues []string) ([]Handler, []string, int) {
+// get attempts to match a path against this node and its children recursively.
+// It fills pvalues with captured parameter values and returns the matched
+// handler chain, parameter names, and match insertion order.
+func (n *node) get(path []byte, pvalues []string) ([]Handler, []string, int) {
 	bestOrder := math.MaxInt32
 	var bestData []Handler
 	var bestNames []string
 
 repeat:
 	if n.static {
-		if !strings.HasPrefix(path, n.key) {
+		if !bytes.HasPrefix(path, n.key) {
 			return nil, nil, bestOrder
 		}
 		path = path[len(n.key):]
 	} else if n.regex != nil {
 		if len(path) == 0 && n.optional {
 			pvalues[n.pindex] = ""
-		} else if m := n.regex.FindStringIndex(path); m != nil {
-			pvalues[n.pindex] = path[:m[1]]
+		} else if m := n.regex.FindIndex(path); m != nil {
+			pvalues[n.pindex] = string(path[:m[1]])
 			path = path[m[1]:]
 		} else {
 			return nil, nil, bestOrder
 		}
 	} else if n.wildcard {
-		pvalues[n.pindex] = path
-		path = ""
+		pvalues[n.pindex] = string(path)
+		path = nil
 	} else {
 		if len(path) == 0 {
 			if n.optional {
@@ -269,12 +271,11 @@ repeat:
 				}
 				idx++
 			}
-			pvalues[n.pindex] = path[:idx]
+			pvalues[n.pindex] = string(path[:idx])
 			path = path[idx:]
 		}
 	}
 
-	// Match static child
 	if len(path) > 0 {
 		if lit := n.children[path[0]]; lit != nil {
 			if len(n.pchildren) == 0 {
@@ -289,19 +290,18 @@ repeat:
 		bestData, bestNames, bestOrder = n.handlers, n.pnames, n.order
 	}
 
-	// Try parametric children
 	tmp := pvalues
-	scratchAllocated := false
+	scratch := false
 	for _, pc := range n.pchildren {
 		if pc.minOrder >= bestOrder {
 			continue
 		}
-		if bestData != nil && !scratchAllocated {
+		if bestData != nil && !scratch {
 			tmp = make([]string, len(pvalues))
-			scratchAllocated = true
+			scratch = true
 		}
 		if d, names, o := pc.get(path, tmp); d != nil && o < bestOrder {
-			if scratchAllocated {
+			if scratch {
 				copy(pvalues[pc.pindex:], tmp[pc.pindex:])
 			}
 			bestData, bestNames, bestOrder = d, names, o
