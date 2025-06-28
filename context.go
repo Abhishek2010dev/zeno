@@ -167,7 +167,6 @@ func (c *Context) IsAJAX() bool {
 	return c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 }
 
-// acceptItem is a helper struct for parsing Accept header values, including their quality factor (q).
 type acceptItem struct {
 	value string
 	q     float64 // Quality factor
@@ -210,11 +209,9 @@ func matchAccept(header string, offers []string) string {
 
 	for _, acc := range accepted {
 		for i, offer := range offersLower {
-			// Exact match or wildcard *
 			if acc.value == offer || acc.value == "*" {
 				return offers[i]
 			}
-			// Type wildcard match (e.g., "text/*" matching "text/html")
 			if strings.HasSuffix(acc.value, "/*") {
 				prefix := strings.TrimSuffix(acc.value, "*")
 				if strings.HasPrefix(offer, prefix) {
@@ -226,26 +223,22 @@ func matchAccept(header string, offers []string) string {
 	return ""
 }
 
-// Accepts determines the best content type that the client accepts based on the
-// Accept request header and the provided offers.
 func (c *Context) Accepts(offers ...string) string {
 	return matchAccept(c.GetHeader(HeaderAccept), offers)
 }
 
-// AcceptsCharset determines the best character set that the client accepts based on the
-// Accept-Charset request header and the provided offers.
 func (c *Context) AcceptsCharset(offers ...string) string {
-	return matchAccept(c.Header(HeaderAcceptCharset), offers)
+	return matchAccept(c.GetHeader(HeaderAcceptCharset), offers)
 }
 
-// AcceptsEncoding determines the best encoding that the client accepts based on the
-// Accept-Encoding request header and the provided offers.
 func (c *Context) AcceptsEncoding(offers ...string) string {
-	return matchAccept(c.Header(HeaderAcceptEncoding), offers)
+	return matchAccept(c.GetHeader(HeaderAcceptEncoding), offers)
 }
 
-// AcceptsLanguage determines the best language that the client accepts based on the
-// Accept-Language request header and the provided offers.
 func (c *Context) AcceptsLanguage(offers ...string) string {
-	return matchAccept(c.Header(HeaderAcceptLanguage), offers)
+	return matchAccept(c.GetHeader(HeaderAcceptLanguage), offers)
+}
+
+func (c *Context) Protocol() string {
+	return c.zeno.toString(c.RequestCtx.Request.Header.Protocol())
 }
