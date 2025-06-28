@@ -184,6 +184,11 @@ func (c *Context) GetHeader(key string) string {
 	return c.zeno.toString(c.RequestCtx.Request.Header.Peek(key))
 }
 
+// SetHeader sets the HTTP response header with the given key and value.
+func (c *Context) SetHeader(key, value string) {
+	c.RequestCtx.Response.Header.Set(key, value)
+}
+
 // RealIP returns the client's real IP address, considering X-Forwarded-For.
 func (c *Context) RealIP() string {
 	xForwardedFor := c.GetHeader(HeaderForwardedFor)
@@ -426,4 +431,78 @@ func max(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// SendBytes sets the response body to the given byte slice `b`.
+// It overwrites any previously set body content.
+//
+// This method is typically used when you already have the response
+// body as a raw byte slice, such as when serving JSON, Yaml, or binary data.
+//
+// Example:
+//
+//	err := ctx.SendBytes([]byte("Hello, World!"))
+//	if err != nil {
+//	    // handle error
+//	}
+func (c *Context) SendBytes(b []byte) error {
+	c.RequestCtx.SetBody(b)
+	return nil
+}
+
+// SendStatusCode sets the HTTP response status code to the given `code`.
+// It does not modify the response body.
+//
+// Example:
+//
+//	ctx.SendStatusCode(fasthttp.StatusNoContent) // sets 204 No Content
+func (c *Context) SendStatusCode(code int) error {
+	c.RequestCtx.SetStatusCode(code)
+	return nil
+}
+
+// SetContentType sets the “Content‑Type” response header.
+//
+// The supplied value must be a valid MIME type string, e.g. "application/json"
+// or "text/html; charset=utf-8".  It is typically called by higher‑level
+// helpers so callers do not need to set the header manually.
+func (c *Context) SetContentType(value string) {
+	c.SetHeader(HeaderContentType, value)
+}
+
+// SendHTML writes an HTML payload to the client.
+//
+// The helper first sets the Content‑Type header to
+// "text/html; charset=utf-8", then delegates to SendString to transmit the
+// body.  Useful for quick inline responses or template output.
+//
+// Example:
+//
+//	if err := ctx.SendHTML("<h1>Hello, Zeno!</h1>"); err != nil {
+//	    // handle error
+//	}
+func (c *Context) SendHTML(value string) error {
+	c.SetContentType("text/html; charset=utf-8")
+	return c.SendString(value)
+}
+
+// SendFile streams the file located at path to the client.
+//
+// It uses fasthttp’s zero‑copy RequestCtx.SendFile under the hood, allowing the
+// kernel to send the file directly from disk to the socket for maximal
+// performance.  The Content‑Type header is inferred from the file extension
+// via fasthttp’s built‑in MIME database.
+//
+// SendFile always returns nil because any I/O errors are already handled by
+// fasthttp and reflected in the HTTP response it writes.  If you need to
+// inspect those errors programmatically, call ctx.RequestCtx.SendFile
+// directly and check the returned error.
+//
+// Example:
+//
+//	// Deliver a static asset.
+//	_ = ctx.SendFile("./public/index.html")
+func (c *Context) SendFile(path string) error {
+	c.RequestCtx.SendFile(path)
+	return nil
 }
