@@ -111,3 +111,15 @@ func (c *Context) Port() string {
 	}
 	return port
 }
+
+func (c *Context) GetHeader(key string) string {
+	return c.zeno.toString(c.RequestCtx.Request.Header.Peek(key))
+}
+
+func (c *Context) HeaderMap() map[string]string {
+	m := map[string]string{}
+	c.RequestCtx.Request.Header.VisitAll(func(key, value []byte) {
+		m[c.zeno.toString(key)] = c.zeno.toString(value)
+	})
+	return m
+}
