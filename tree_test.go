@@ -40,12 +40,12 @@ func TestTree_AddAndGet(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tree.Add(test.route, []Handler{test.handler})
+		tree.Add([]byte(test.route), []Handler{test.handler})
 	}
 
 	for _, test := range tests {
 		copy(pvalues, make([]string, len(pvalues)))
-		handlers, pnames := tree.Get(test.path, pvalues)
+		handlers, pnames := tree.Get([]byte(test.path), pvalues)
 
 		if test.handler == nil {
 			if handlers != nil {
@@ -78,11 +78,11 @@ func TestTree_NegativeMatches(t *testing.T) {
 	pvalues := make([]string, 10)
 
 	// Add valid routes
-	tree.Add("/user/{id}", []Handler{testHandler()})
-	tree.Add("/post/{id?}", []Handler{testHandler()})
-	tree.Add("/files/{path*}", []Handler{testHandler()})
-	tree.Add("/item/{slug:[a-z0-9\\-]+}", []Handler{testHandler()})
-	tree.Add("/page/{year}-{slug}", []Handler{testHandler()})
+	tree.Add([]byte("/user/{id}"), []Handler{testHandler()})
+	tree.Add([]byte("/post/{id?}"), []Handler{testHandler()})
+	tree.Add([]byte("/files/{path*}"), []Handler{testHandler()})
+	tree.Add([]byte("/item/{slug:[a-z0-9\\-]+}"), []Handler{testHandler()})
+	tree.Add([]byte("/page/{year}-{slug}"), []Handler{testHandler()})
 
 	// Negative cases: these should NOT match any route
 	negativePaths := []string{
@@ -98,7 +98,7 @@ func TestTree_NegativeMatches(t *testing.T) {
 
 	for _, path := range negativePaths {
 		copy(pvalues, make([]string, len(pvalues)))
-		handlers, _ := tree.Get(path, pvalues)
+		handlers, _ := tree.Get([]byte(path), pvalues)
 		if handlers != nil {
 			t.Errorf("expected no match for path %q, got handler", path)
 		}

@@ -32,3 +32,22 @@ func (c *Context) URL(route string, pairs ...interface{}) string {
 	}
 	return ""
 }
+
+func (c *Context) init(ctx *fasthttp.RequestCtx) {
+	c.RequestCtx = ctx
+	c.index = -1
+}
+
+func (c *Context) Zeno() *Zeno {
+	return c.zeno
+}
+
+func (c *Context) Status(code int) *Context {
+	c.RequestCtx.SetStatusCode(code)
+	return c
+}
+
+func (c *Context) SendString(value string) error {
+	c.RequestCtx.Response.AppendBodyString(value)
+	return nil
+}
