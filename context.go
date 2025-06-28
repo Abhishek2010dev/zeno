@@ -44,7 +44,7 @@ func (c *Context) Abort() {
 }
 
 // URL returns a URL for a named route with optional path parameters.
-func (c *Context) URL(route string, pairs ...interface{}) string {
+func (c *Context) URL(route string, pairs ...any) string {
 	if r := c.zeno.routes[route]; r != nil {
 		return r.URL(pairs...)
 	}
