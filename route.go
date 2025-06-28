@@ -10,7 +10,7 @@ import (
 // Route represents a route definition, including its path, name,
 // associated handlers, and belonging group.
 type Route struct {
-	group    *Group
+	group    *RouteGroup
 	name     string
 	path     string
 	template string
@@ -20,7 +20,7 @@ type Route struct {
 // It transforms wildcard patterns into regular expressions and builds a URL template.
 //
 // It also registers the route in the global Zeno routes map.
-func newRoute(path string, group *Group) *Route {
+func newRoute(path string, group *RouteGroup) *Route {
 	path = group.prefix + path
 	name := path
 

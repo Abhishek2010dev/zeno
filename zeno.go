@@ -17,7 +17,7 @@ type Handler func(*Context) error
 // It stores routing trees, middleware, error handling logic,
 // and manages request context pooling and execution.
 type Zeno struct {
-	Group // Root group for registering routes directly
+	RouteGroup // Root group for registering routes directly
 
 	// Routing trees for each HTTP method
 	getTree     *tree
@@ -59,7 +59,7 @@ func New() *Zeno {
 	z := &Zeno{
 		routes: make(map[string]*Route),
 	}
-	z.Group = *NewGroup("", z, nil)
+	z.RouteGroup = *NewRouteGroup("", z, nil)
 	z.pool.New = func() interface{} {
 		return &Context{
 			pvalues: make([]string, z.maxParams),
@@ -81,12 +81,12 @@ func New() *Zeno {
 
 // Use appends the specified handlers to the router and shares them with all routes.
 func (r *Zeno) Use(handlers ...Handler) {
-	r.Group.Use(handlers...)
+	r.RouteGroup.Use(handlers...)
 	r.notFoundHandlers = combineHandlers(r.handlers, r.notFound)
 }
 
 // Route returns a named route by name.
-func (z *Zeno) Route(name string) *Route {
+func (z *Zeno) GetRoute(name string) *Route {
 	return z.routes[name]
 }
 
@@ -237,26 +237,6 @@ func MethodNotAllowedHandler(c *Context) error {
 	}
 	c.Abort()
 	return nil
-}
-
-// Group returns a new RouteGroup whose path prefix is the current group’s
-// prefix followed by prefix. Any handlers passed to Group are appended to the
-// new group; if none are provided, the new group inherits the current group’s
-// handlers.
-//
-// Example:
-//
-//	api := router.Group("/api", auth)
-//	v1  := api.Group("/v1")           // -> prefix “/api/v1”, handlers {auth}
-//
-// prefix should begin with “/”; Group does not add a leading slash
-// automatically.
-func (r *Group) Group(prefix string, handlers ...Handler) *RouteGroup {
-	if len(handlers) == 0 {
-		handlers = make([]Handler, len(r.handlers))
-		copy(handlers, r.handlers)
-	}
-	return NewGroup(r.prefix+prefix, r.router, handlers)
 }
 
 // Run starts the HTTP server on the given address using fasthttp.

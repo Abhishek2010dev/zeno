@@ -2,22 +2,22 @@ package zeno
 
 import "strings"
 
-// Group represents a collection of routes with a common prefix and shared middleware handlers.
+// RouteGroup represents a collection of routes with a common prefix and shared middleware handlers.
 // It allows organizing routes into subgroups for modular design.
-type Group struct {
+type RouteGroup struct {
 	prefix   string    // Common path prefix for all routes in the group
 	zeno     *Zeno     // Reference to the parent Zeno instance
 	handlers []Handler // Middleware handlers applied to all routes in the group
 }
 
-// NewGroup creates and returns a new route group with the given path prefix,
+// NewRouteGroup creates and returns a new route group with the given path prefix,
 // associated Zeno instance, and optional middleware handlers.
 //
 // Example:
 //
-//	api := NewGroup("/api", app, []Handler{authMiddleware})
-func NewGroup(prefix string, zeno *Zeno, handlers []Handler) *Group {
-	return &Group{
+//	api := NewRouteGroup("/api", app, []Handler{authMiddleware})
+func NewRouteGroup(prefix string, zeno *Zeno, handlers []Handler) *RouteGroup {
+	return &RouteGroup{
 		prefix:   prefix,
 		zeno:     zeno,
 		handlers: handlers,
@@ -29,7 +29,7 @@ func NewGroup(prefix string, zeno *Zeno, handlers []Handler) *Group {
 // Example:
 //
 //	g.Get("/ping", pingHandler)
-func (r *Group) Get(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Get(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Get(handlers...)
 }
 
@@ -38,42 +38,42 @@ func (r *Group) Get(path string, handlers ...Handler) *Route {
 // Example:
 //
 //	g.Post("/submit", submitHandler)
-func (r *Group) Post(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Post(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Post(handlers...)
 }
 
 // Put registers a new route in the group for the PUT HTTP method.
-func (r *Group) Put(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Put(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Put(handlers...)
 }
 
 // Patch registers a new route in the group for the PATCH HTTP method.
-func (r *Group) Patch(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Patch(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Patch(handlers...)
 }
 
 // Delete registers a new route in the group for the DELETE HTTP method.
-func (r *Group) Delete(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Delete(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Delete(handlers...)
 }
 
 // Connect registers a new route in the group for the CONNECT HTTP method.
-func (r *Group) Connect(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Connect(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Connect(handlers...)
 }
 
 // Head registers a new route in the group for the HEAD HTTP method.
-func (r *Group) Head(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Head(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Head(handlers...)
 }
 
 // Options registers a new route in the group for the OPTIONS HTTP method.
-func (r *Group) Options(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Options(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Options(handlers...)
 }
 
 // Trace registers a new route in the group for the TRACE HTTP method.
-func (r *Group) Trace(path string, handlers ...Handler) *Route {
+func (r *RouteGroup) Trace(path string, handlers ...Handler) *Route {
 	return newRoute(path, r).Trace(handlers...)
 }
 
@@ -83,7 +83,7 @@ func (r *Group) Trace(path string, handlers ...Handler) *Route {
 // Example:
 //
 //	g.To("GET,POST", "/users", usersHandler)
-func (r *Group) To(methods, path string, handlers ...Handler) *Route {
+func (r *RouteGroup) To(methods, path string, handlers ...Handler) *Route {
 	route := newRoute(path, r)
 	for method := range strings.SplitSeq(methods, ",") {
 		route.add(method, handlers)
@@ -93,28 +93,28 @@ func (r *Group) To(methods, path string, handlers ...Handler) *Route {
 
 // Use registers one or multiple handlers to the current route group.
 // These handlers will be shared by all routes belong to this group and its subgroups.
-func (r *Group) Use(handlers ...Handler) {
+func (r *RouteGroup) Use(handlers ...Handler) {
 	r.handlers = append(r.handlers, handlers...)
 }
 
-// Group returns a new RouteGroup whose path prefix is the current group’s
-// prefix followed by prefix. Any handlers passed to Group are appended to the
+// RouteGroup returns a new RouteRouteGroup whose path prefix is the current group’s
+// prefix followed by prefix. Any handlers passed to RouteGroup are appended to the
 // new group; if none are provided, the new group inherits the current group’s
 // handlers.
 //
 // Example:
 //
-//	api := router.Group("/api", auth)
-//	v1  := api.Group("/v1")           // -> prefix “/api/v1”, handlers {auth}
+//	api := router.RouteGroup("/api", auth)
+//	v1  := api.RouteGroup("/v1")           // -> prefix “/api/v1”, handlers {auth}
 //
-// prefix should begin with “/”; Group does not add a leading slash
+// prefix should begin with “/”; RouteGroup does not add a leading slash
 // automatically.
-func (r *Group) Group(prefix string, handlers ...Handler) *Group {
+func (r *RouteGroup) Group(prefix string, handlers ...Handler) *RouteGroup {
 	if len(handlers) == 0 {
 		handlers = make([]Handler, len(r.handlers))
 		copy(handlers, r.handlers)
 	}
-	return NewGroup(r.prefix+prefix, r.zeno, handlers)
+	return NewRouteGroup(r.prefix+prefix, r.zeno, handlers)
 }
 
 // Route creates a new sub-route group with the given path prefix and optional
@@ -122,10 +122,10 @@ func (r *Group) Group(prefix string, handlers ...Handler) *Group {
 //
 // This enables nesting of routes in a structured way, similar to Chi:
 //
-//	r.Route("/api", func(r *Group) {
+//	r.Route("/api", func(r *RouteGroup) {
 //	    r.Get("/users", listUsers)
 //	})
-func (r *Group) Route(prefix string, fn func(*Group), handlers ...Handler) {
+func (r *RouteGroup) Route(prefix string, fn func(*RouteGroup), handlers ...Handler) {
 	g := r.Group(r.prefix+prefix, handlers...)
 	fn(g)
 }
