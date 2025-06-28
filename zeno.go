@@ -239,6 +239,26 @@ func MethodNotAllowedHandler(c *Context) error {
 	return nil
 }
 
+// Group returns a new RouteGroup whose path prefix is the current group’s
+// prefix followed by prefix. Any handlers passed to Group are appended to the
+// new group; if none are provided, the new group inherits the current group’s
+// handlers.
+//
+// Example:
+//
+//	api := router.Group("/api", auth)
+//	v1  := api.Group("/v1")           // -> prefix “/api/v1”, handlers {auth}
+//
+// prefix should begin with “/”; Group does not add a leading slash
+// automatically.
+func (r *Group) Group(prefix string, handlers ...Handler) *RouteGroup {
+	if len(handlers) == 0 {
+		handlers = make([]Handler, len(r.handlers))
+		copy(handlers, r.handlers)
+	}
+	return NewGroup(r.prefix+prefix, r.router, handlers)
+}
+
 // Run starts the HTTP server on the given address using fasthttp.
 // If useReusePort is true, it uses SO_REUSEPORT for load balancing across processes.
 func (z *Zeno) Run(addr string) error {

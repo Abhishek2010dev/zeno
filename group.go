@@ -96,3 +96,36 @@ func (r *Group) To(methods, path string, handlers ...Handler) *Route {
 func (r *Group) Use(handlers ...Handler) {
 	r.handlers = append(r.handlers, handlers...)
 }
+
+// Group returns a new RouteGroup whose path prefix is the current group’s
+// prefix followed by prefix. Any handlers passed to Group are appended to the
+// new group; if none are provided, the new group inherits the current group’s
+// handlers.
+//
+// Example:
+//
+//	api := router.Group("/api", auth)
+//	v1  := api.Group("/v1")           // -> prefix “/api/v1”, handlers {auth}
+//
+// prefix should begin with “/”; Group does not add a leading slash
+// automatically.
+func (r *Group) Group(prefix string, handlers ...Handler) *Group {
+	if len(handlers) == 0 {
+		handlers = make([]Handler, len(r.handlers))
+		copy(handlers, r.handlers)
+	}
+	return NewGroup(r.prefix+prefix, r.zeno, handlers)
+}
+
+// Route creates a new sub-route group with the given path prefix and optional
+// handlers. It then executes the provided function with the new group.
+//
+// This enables nesting of routes in a structured way, similar to Chi:
+//
+//	r.Route("/api", func(r *Group) {
+//	    r.Get("/users", listUsers)
+//	})
+func (r *Group) Route(prefix string, fn func(*Group), handlers ...Handler) {
+	g := r.Group(r.prefix+prefix, handlers...)
+	fn(g)
+}
