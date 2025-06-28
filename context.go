@@ -51,3 +51,12 @@ func (c *Context) SendString(value string) error {
 	c.RequestCtx.Response.AppendBodyString(value)
 	return nil
 }
+
+func (c *Context) Param(name string) string {
+	for i, n := range c.pnames {
+		if n == name {
+			return c.pvalues[i]
+		}
+	}
+	return ""
+}

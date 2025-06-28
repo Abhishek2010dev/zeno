@@ -100,7 +100,7 @@ func (r *Route) Trace(handlers ...Handler) *Route {
 //
 //	r.To("GET,POST", handler)
 func (r *Route) To(methods string, handlers ...Handler) *Route {
-	for _, method := range strings.Split(methods, ",") {
+	for method := range strings.SplitSeq(methods, ",") {
 		r.add(strings.TrimSpace(method), handlers)
 	}
 	return r

@@ -90,3 +90,9 @@ func (r *Group) To(methods, path string, handlers ...Handler) *Route {
 	}
 	return route
 }
+
+// Use registers one or multiple handlers to the current route group.
+// These handlers will be shared by all routes belong to this group and its subgroups.
+func (r *Group) Use(handlers ...Handler) {
+	r.handlers = append(r.handlers, handlers...)
+}

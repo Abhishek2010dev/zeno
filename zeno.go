@@ -79,6 +79,17 @@ func New() *Zeno {
 	return z
 }
 
+// Use appends the specified handlers to the router and shares them with all routes.
+func (r *Zeno) Use(handlers ...Handler) {
+	r.Group.Use(handlers...)
+	r.notFoundHandlers = combineHandlers(r.handlers, r.notFound)
+}
+
+// Route returns a named route by name.
+func (z *Zeno) Route(name string) *Route {
+	return z.routes[name]
+}
+
 // NotFound sets the handler(s) to be used when no route is matched.
 // The final notFound handler chain includes global middleware.
 func (r *Zeno) NotFound(handlers ...Handler) {
