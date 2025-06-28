@@ -66,13 +66,34 @@ func (c *Context) Param(name string) string {
 }
 
 func (c *Context) Params() map[string]string {
-	params := make(map[string]string)
+	params := map[string]string{}
 	for i, n := range c.pnames {
 		if i < len(c.pvalues) {
 			params[n] = c.pvalues[i]
 		}
 	}
 	return params
+}
+
+func (c *Context) Query(key string) string {
+	return c.zeno.toString(c.RequestCtx.QueryArgs().Peek(key))
+}
+
+func (c *Context) QueryArray(key string) []string {
+	args := c.RequestCtx.QueryArgs().PeekMulti(key)
+	arr := make([]string, len(args))
+	for i, b := range args {
+		arr[i] = c.zeno.toString(b)
+	}
+	return arr
+}
+
+func (c *Context) QueryMap() map[string]string {
+	m := map[string]string{}
+	c.RequestCtx.QueryArgs().VisitAll(func(key, value []byte) {
+		m[c.zeno.toString(key)] = c.zeno.toString(value)
+	})
+	return m
 }
 
 func (c *Context) Method() string {
