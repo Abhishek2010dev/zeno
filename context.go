@@ -937,3 +937,24 @@ func (c *Context) BindString(out *string) error {
 	*out = c.zeno.toString(body)
 	return nil
 }
+
+// Redirect sends an HTTP redirect to the client with the specified status code.
+// The default code is 302 (StatusFound) if none is provided.
+//
+// Example:
+//
+//	return c.Redirect("/login")             // 302 Found
+//	return c.Redirect("/dashboard", 301)    // 301 Moved Permanently
+func (c *Context) Redirect(url string, code ...int) error {
+	status := StatusFound // 302 by default
+	if len(code) > 0 {
+		status = code[0]
+	}
+	c.RequestCtx.Redirect(url, status)
+	return nil
+}
+
+// Host returns the host part of the request, from the Host header.
+func (c *Context) Host() string {
+	return c.zeno.toString(c.RequestCtx.Host())
+}
