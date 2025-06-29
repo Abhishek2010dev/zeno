@@ -11,9 +11,12 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
+	"gopkg.in/yaml.v3"
 )
 
 type Handler func(*Context) error
+
+type Map map[string]any
 
 // Zeno is the main application struct for the framework.
 // It stores routing trees, middleware, error handling logic,
@@ -47,6 +50,8 @@ type Zeno struct {
 
 	// Unsafe byte slice to string conversion
 	toString func(v []byte) string
+
+	toBytes func(v string) []byte
 
 	// Custom error handler
 	ErrorHandler func(*Context, error) error
@@ -92,6 +97,18 @@ type Zeno struct {
 	// It takes a Go value, prefix, and indent string to format the output.
 	// Usually wraps xml.MarshalIndent or any compatible alternative.
 	XmlIndent IndentFunc
+
+	// YamlDecoder is the default function used to decode a YAML payload
+	// from the request body. It should unmarshal the byte slice into the
+	// target Go value. Typically wraps yaml.Unmarshal or a faster YAML
+	// decoder such as "github.com/goccy/go-yaml".
+	YamlDecoder DecoderFunc
+
+	// YamlEncoder is the default function used to encode a Go value into
+	// YAML format. It should return the marshaled byte slice that can be
+	// written directly to the response. You should set the "Content-Type"
+	// to "application/x-yaml" or "text/yaml" before writing the response.
+	YamlEncoder EncoderFunc
 }
 
 // New creates and returns a new Zeno instance with default settings,
@@ -105,6 +122,8 @@ func New() *Zeno {
 		XmlEncoder:       xml.Marshal,
 		XmlDecoder:       xml.Unmarshal,
 		XmlIndent:        xml.MarshalIndent,
+		YamlDecoder:      yaml.Unmarshal,
+		YamlEncoder:      yaml.Marshal,
 		SecureJSONPrefix: "while(1);",
 	}
 	z.RouteGroup = *NewRouteGroup("", z, nil)
@@ -116,6 +135,9 @@ func New() *Zeno {
 	}
 	z.toString = func(b []byte) string {
 		return *(*string)(unsafe.Pointer(&b))
+	}
+	z.toBytes = func(v string) []byte {
+		return unsafe.Slice(unsafe.StringData(v), len(v))
 	}
 	z.NotFound(MethodNotAllowedHandler, NotFoundHandler)
 	z.ErrorHandler = func(c *Context, err error) error {

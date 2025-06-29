@@ -732,3 +732,67 @@ func (c *Context) BindXML(out any) error {
 	}
 	return nil
 }
+
+// BindYAML reads the request body, decodes it as YAML, and stores the
+// result in out.
+//
+// The decoder is the YamlDecoder configured on the parent *Zeno* instance.
+// A 400 Bad Request error is returned if the body is empty or the data
+// cannot be decoded.
+//
+// Example:
+//
+//	type User struct {
+//	    Name string `yaml:"name"`
+//	    Age  int    `yaml:"age"`
+//	}
+//
+//	var u User
+//	if err := c.BindYAML(&u); err != nil {
+//	    c.Logger().Error(err)
+//	    return
+//	}
+func (c *Context) BindYAML(out any) error {
+	body := c.PostBody()
+	if len(body) == 0 {
+		return NewHTTPError(StatusBadRequest, "Request body is empty")
+	}
+	if err := c.Zeno().YamlDecoder(body, out); err != nil {
+		return NewHTTPError(StatusBadRequest, "Invalid YAML: "+err.Error())
+	}
+	return nil
+}
+
+// SendYAML encodes v as YAML and writes it to the response.
+//
+// It sets the Content‑Type to "application/yaml; charset=utf‑8" unless a
+// custom value is provided via ctype. A 500 Internal Server Error is
+// returned if encoding fails.
+//
+// Example:
+//
+//	data := map[string]any{
+//	    "status": "ok",
+//	    "count":  42,
+//	}
+//	if err := c.SendYAML(data); err != nil {
+//	    c.Logger().Error(err)
+//	}
+//
+// To override the default content type:
+//
+//	if err := c.SendYAML(data, "text/x-yaml"); err != nil {
+//	    ...
+//	}
+func (c *Context) SendYAML(v any, ctype ...string) error {
+	contentType := "application/yaml; charset=utf-8"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+	bytes, err := c.Zeno().YamlEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "Failed to encode YAML: "+err.Error())
+	}
+	return c.SendBytes(bytes)
+}
