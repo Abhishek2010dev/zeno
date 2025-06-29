@@ -234,3 +234,27 @@ age = 30`)
 		t.Fatalf("response TOML missing age; got: %s", body)
 	}
 }
+
+func TestContext_String(t *testing.T) {
+	body := []byte("Hello, Zeno!")
+	c, native := newTestContext("POST", "/", map[string]string{
+		"Content-Type": "text/plain",
+	}, body)
+
+	var s string
+	if err := c.BindString(&s); err != nil {
+		t.Fatalf("BindString failed: %v", err)
+	}
+
+	if s != "Hello, Zeno!" {
+		t.Fatalf("expected string 'Hello, Zeno!', got '%s'", s)
+	}
+
+	if err := c.SendString(s); err != nil {
+		t.Fatalf("SendString failed: %v", err)
+	}
+
+	if string(native.Response.Body()) != "Hello, Zeno!" {
+		t.Fatalf("expected response body 'Hello, Zeno!', got '%s'", native.Response.Body())
+	}
+}

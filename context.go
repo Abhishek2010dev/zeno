@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
 )
 
@@ -538,7 +537,7 @@ func (c *Context) SendJSON(value any, ctype ...string) error {
 	}
 	c.SetContentType(contentType)
 
-	bytes, err := c.Zeno().JsonEncoder(value)
+	bytes, err := c.zeno.JsonEncoder(value)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
 	}
@@ -559,7 +558,7 @@ func (c *Context) BindJSON(out any) error {
 	if len(body) == 0 {
 		return NewHTTPError(StatusBadRequest, "Request body is empty")
 	}
-	if err := c.Zeno().JsonDecoder(body, out); err != nil {
+	if err := c.zeno.JsonDecoder(body, out); err != nil {
 		return NewHTTPError(StatusBadRequest, "Invalid JSON: "+err.Error())
 	}
 	return nil
@@ -580,7 +579,7 @@ func (c *Context) SendJSONP(value any, callback ...string) error {
 		cback = callback[0]
 	}
 	c.SetContentType("application/javascript")
-	bytes, err := c.Zeno().JsonEncoder(value)
+	bytes, err := c.zeno.JsonEncoder(value)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
 	}
@@ -619,7 +618,7 @@ func (c *Context) SendJSONIndent(value any, prefix, indent string, ctype ...stri
 	}
 	c.SetContentType(contentType)
 
-	bytes, err := sonic.MarshalIndent(value, prefix, indent)
+	bytes, err := c.zeno.JsonIndent(value, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
 	}
@@ -640,7 +639,7 @@ func (c *Context) SendSecureJSON(value any, ctype ...string) error {
 	}
 	c.SetContentType(contentType)
 
-	b, err := c.Zeno().JsonEncoder(value)
+	b, err := c.zeno.JsonEncoder(value)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError,
 			"Failed to encode JSON: "+err.Error())
@@ -674,7 +673,7 @@ func (c *Context) SendXML(value any, ctype ...string) error {
 	}
 	c.SetContentType(contentType)
 
-	b, err := c.Zeno().XmlEncoder(value)
+	b, err := c.zeno.XmlEncoder(value)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError,
 			"Failed to encode XML: "+err.Error())
@@ -703,7 +702,7 @@ func (c *Context) SendXMLIndent(value any, prefix, indent string, ctype ...strin
 	}
 	c.SetContentType(contentType)
 
-	b, err := c.Zeno().XmlIndent(value, prefix, indent)
+	b, err := c.zeno.XmlIndent(value, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError,
 			"Failed to encode XML: "+err.Error())
@@ -727,7 +726,7 @@ func (c *Context) BindXML(out any) error {
 	if len(body) == 0 {
 		return NewHTTPError(StatusBadRequest, "Request body is empty")
 	}
-	if err := c.Zeno().XmlDecoder(body, out); err != nil {
+	if err := c.zeno.XmlDecoder(body, out); err != nil {
 		return NewHTTPError(StatusBadRequest, "Invalid XML: "+err.Error())
 	}
 	return nil
@@ -757,7 +756,7 @@ func (c *Context) BindYAML(out any) error {
 	if len(body) == 0 {
 		return NewHTTPError(StatusBadRequest, "Request body is empty")
 	}
-	if err := c.Zeno().YamlDecoder(body, out); err != nil {
+	if err := c.zeno.YamlDecoder(body, out); err != nil {
 		return NewHTTPError(StatusBadRequest, "Invalid YAML: "+err.Error())
 	}
 	return nil
@@ -790,7 +789,7 @@ func (c *Context) SendYAML(v any, ctype ...string) error {
 		contentType = ctype[0]
 	}
 	c.SetContentType(contentType)
-	bytes, err := c.Zeno().YamlEncoder(v)
+	bytes, err := c.zeno.YamlEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode YAML: "+err.Error())
 	}
@@ -821,7 +820,7 @@ func (c *Context) BindTOML(out any) error {
 	if len(body) == 0 {
 		return NewHTTPError(StatusBadRequest, "Request body is empty")
 	}
-	if err := c.Zeno().TomlDecoder(body, out); err != nil {
+	if err := c.zeno.TomlDecoder(body, out); err != nil {
 		return NewHTTPError(StatusBadRequest, "Invalid TOML: "+err.Error())
 	}
 	return nil
@@ -854,7 +853,7 @@ func (c *Context) SendTOML(v any, ctype ...string) error {
 		contentType = ctype[0]
 	}
 	c.SetContentType(contentType)
-	bytes, err := c.Zeno().TomlEncoder(v)
+	bytes, err := c.zeno.TomlEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode TOML: "+err.Error())
 	}
@@ -872,7 +871,6 @@ func (c *Context) SendTOML(v any, ctype ...string) error {
 //
 //	var input map[string]any
 //	if err := c.BindCBOR(&input); err != nil {
-//	    c.Logger().Error(err)
 //	    return
 //	}
 func (c *Context) BindCBOR(out any) error {
@@ -880,7 +878,7 @@ func (c *Context) BindCBOR(out any) error {
 	if len(body) == 0 {
 		return NewHTTPError(StatusBadRequest, "Request body is empty")
 	}
-	if err := c.Zeno().CborDecoder(body, out); err != nil {
+	if err := c.zeno.CborDecoder(body, out); err != nil {
 		return NewHTTPError(StatusBadRequest, "Invalid CBOR: "+err.Error())
 	}
 	return nil
@@ -899,7 +897,6 @@ func (c *Context) BindCBOR(out any) error {
 //	    "ts": time.Now().Unix(),
 //	}
 //	if err := c.SendCBOR(output); err != nil {
-//	    c.Logger().Error(err)
 //	}
 //
 // To override the default content type:
@@ -913,9 +910,30 @@ func (c *Context) SendCBOR(v any, ctype ...string) error {
 		contentType = ctype[0]
 	}
 	c.SetContentType(contentType)
-	bytes, err := c.Zeno().CborEncoder(v)
+	bytes, err := c.zeno.CborEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode CBOR: "+err.Error())
 	}
 	return c.SendBytes(bytes)
+}
+
+// BindString binds the raw request body to the given string pointer.
+// It returns a 400 Bad Request error if the body is empty.
+//
+// Example:
+//
+//	var msg string
+//	err := ctx.BindString(&msg)
+//	if err != nil {
+//	    ctx.SendStatus(400)
+//	    return
+//	}
+//	ctx.SendString("Got: " + msg)
+func (c *Context) BindString(out *string) error {
+	body := c.PostBody()
+	if len(body) == 0 {
+		return NewHTTPError(StatusBadRequest, "Request body is empty")
+	}
+	*out = c.zeno.toString(body)
+	return nil
 }
