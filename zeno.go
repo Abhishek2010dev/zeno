@@ -9,6 +9,8 @@ import (
 	"unsafe"
 
 	"github.com/bytedance/sonic"
+	"github.com/fxamacker/cbor/v2"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
 	"gopkg.in/yaml.v3"
@@ -100,8 +102,7 @@ type Zeno struct {
 
 	// YamlDecoder is the default function used to decode a YAML payload
 	// from the request body. It should unmarshal the byte slice into the
-	// target Go value. Typically wraps yaml.Unmarshal or a faster YAML
-	// decoder such as "github.com/goccy/go-yaml".
+	// target Go value.
 	YamlDecoder DecoderFunc
 
 	// YamlEncoder is the default function used to encode a Go value into
@@ -109,6 +110,29 @@ type Zeno struct {
 	// written directly to the response. You should set the "Content-Type"
 	// to "application/x-yaml" or "text/yaml" before writing the response.
 	YamlEncoder EncoderFunc
+
+	// TomlDecoder is the default function used to decode a TOML payload
+	// from the request body. It should unmarshal the byte slice into the
+	// target Go value.
+	TomlDecoder DecoderFunc
+
+	// TomlEncoder is the default function used to encode a Go value into
+	// TOML format. It should return the marshaled byte slice that can be
+	// written directly to the response. You should set the "Content-Type"
+	// to "application/toml" or "text/x-toml" before writing the response.
+	TomlEncoder EncoderFunc
+
+	// CborDecoder is the default function used to decode a CBOR payload
+	// from the request body. It should unmarshal the byte slice into the
+	// target Go value. CBOR is a binary JSON-like format used in constrained
+	// environments like IoT.
+	CborDecoder DecoderFunc
+
+	// CborEncoder is the default function used to encode a Go value into
+	// CBOR format. It should return the marshaled byte slice that can be
+	// written directly to the response. You should set the "Content-Type"
+	// to "application/cbor" before writing the response.
+	CborEncoder EncoderFunc
 }
 
 // New creates and returns a new Zeno instance with default settings,
@@ -124,6 +148,10 @@ func New() *Zeno {
 		XmlIndent:        xml.MarshalIndent,
 		YamlDecoder:      yaml.Unmarshal,
 		YamlEncoder:      yaml.Marshal,
+		TomlDecoder:      toml.Unmarshal,
+		TomlEncoder:      toml.Marshal,
+		CborDecoder:      cbor.Unmarshal,
+		CborEncoder:      cbor.Marshal,
 		SecureJSONPrefix: "while(1);",
 	}
 	z.RouteGroup = *NewRouteGroup("", z, nil)

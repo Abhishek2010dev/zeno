@@ -796,3 +796,67 @@ func (c *Context) SendYAML(v any, ctype ...string) error {
 	}
 	return c.SendBytes(bytes)
 }
+
+// BindTOML reads the request body, decodes it as TOML, and stores the
+// result in out.
+//
+// The decoder is the TomlDecoder configured on the parent *Zeno* instance.
+// A 400 Bad Request error is returned if the body is empty or the data
+// cannot be decoded.
+//
+// Example:
+//
+//	type Config struct {
+//	    Host string `toml:"host"`
+//	    Port int    `toml:"port"`
+//	}
+//
+//	var cfg Config
+//	if err := c.BindTOML(&cfg); err != nil {
+//	    c.Logger().Error(err)
+//	    return
+//	}
+func (c *Context) BindTOML(out any) error {
+	body := c.PostBody()
+	if len(body) == 0 {
+		return NewHTTPError(StatusBadRequest, "Request body is empty")
+	}
+	if err := c.Zeno().TomlDecoder(body, out); err != nil {
+		return NewHTTPError(StatusBadRequest, "Invalid TOML: "+err.Error())
+	}
+	return nil
+}
+
+// SendTOML encodes v as TOML and writes it to the response.
+//
+// It sets the Content-Type to "application/toml; charset=utf-8" unless a
+// custom value is provided via ctype. A 500 Internal Server Error is
+// returned if encoding fails.
+//
+// Example:
+//
+//	settings := map[string]any{
+//	    "mode": "production",
+//	    "port": 8080,
+//	}
+//	if err := c.SendTOML(settings); err != nil {
+//	    c.Logger().Error(err)
+//	}
+//
+// To override the default content type:
+//
+//	if err := c.SendTOML(settings, "text/x-toml"); err != nil {
+//	    ...
+//	}
+func (c *Context) SendTOML(v any, ctype ...string) error {
+	contentType := "application/toml; charset=utf-8"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+	bytes, err := c.Zeno().TomlEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "Failed to encode TOML: "+err.Error())
+	}
+	return c.SendBytes(bytes)
+}
