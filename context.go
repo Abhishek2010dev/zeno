@@ -1,6 +1,7 @@
 package zeno
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -70,7 +71,7 @@ func (c *Context) Status(code int) *Context {
 
 // SendString writes a plain text response body.
 func (c *Context) SendString(value string) error {
-	c.RequestCtx.Response.AppendBodyString(value)
+	c.RequestCtx.Response.SetBodyString(value)
 	return nil
 }
 
@@ -446,18 +447,22 @@ func max(a, b int64) int64 {
 //	    // handle error
 //	}
 func (c *Context) SendBytes(b []byte) error {
-	c.RequestCtx.SetBody(b)
+	c.RequestCtx.Response.SetBodyRaw(b)
 	return nil
 }
 
 // SendStatusCode sets the HTTP response status code to the given `code`.
-// It does not modify the response body.
+// It does not modify the response body unless the body is currently empty,
+// in which case it sets the body to the default status text.
 //
 // Example:
 //
 //	ctx.SendStatusCode(fasthttp.StatusNoContent) // sets 204 No Content
 func (c *Context) SendStatusCode(code int) error {
 	c.RequestCtx.SetStatusCode(code)
+	if len(c.RequestCtx.Response.Body()) == 0 {
+		return c.SendString(StatusMessage(code))
+	}
 	return nil
 }
 
@@ -505,4 +510,130 @@ func (c *Context) SendHTML(value string) error {
 func (c *Context) SendFile(path string) error {
 	c.RequestCtx.SendFile(path)
 	return nil
+}
+
+// SendHeader sets a response header with the given key and value.
+// It returns nil for compatibility with middleware chains.
+//
+// Example:
+//
+//	err := ctx.SendHeader("X-Custom-Header", "value")
+func (c *Context) SendHeader(key, value string) error {
+	c.SetHeader(key, value)
+	return nil
+}
+
+// SendJSON encodes the given value as JSON and writes it to the response.
+// It sets the Content-Type to "application/json" unless overridden with the optional ctype argument.
+//
+// Example:
+//
+//	return c.SendJSON(data)
+//	return c.SendJSON(data, "application/vnd.api+json")
+func (c *Context) SendJSON(value any, ctype ...string) error {
+	contentType := "application/json"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+
+	bytes, err := c.Zeno().JsonEncoder(value)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
+	}
+	return c.SendBytes(bytes)
+}
+
+// BindJSON decodes the JSON request body into the provided destination structure.
+// Returns an error if the body is empty or invalid.
+//
+// Example:
+//
+//	var req UserInput
+//	if err := c.BindJSON(&req); err != nil {
+//	    return err
+//	}
+func (c *Context) BindJSON(out any) error {
+	body := c.PostBody()
+	if len(body) == 0 {
+		return NewHTTPError(StatusBadRequest, "Request body is empty")
+	}
+	if err := c.Zeno().JsonDecoder(body, out); err != nil {
+		return NewHTTPError(StatusBadRequest, "Invalid JSON: "+err.Error())
+	}
+	return nil
+}
+
+// SendJSONP encodes the value as JSON and wraps it in a JavaScript function call
+// for use with JSONP (JSON with Padding). It sets Content-Type to "application/javascript".
+//
+// The optional callback name defaults to "callback".
+//
+// Example:
+//
+//	return c.SendJSONP(data)               // callback(data)
+//	return c.SendJSONP(data, "handleData") // handleData(data)
+func (c *Context) SendJSONP(value any, callback ...string) error {
+	cback := "callback"
+	if len(callback) > 0 {
+		cback = callback[0]
+	}
+	c.SetContentType("application/javascript")
+	bytes, err := c.Zeno().JsonEncoder(value)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
+	}
+	// Wrap the JSON in the callback function
+	return c.SendString(cback + "(" + c.zeno.toString(bytes) + ");")
+}
+
+// SendPrettyJSON encodes the given value as pretty-formatted JSON (indented)
+// and writes it to the response. Ideal for human-readable responses in development.
+//
+// It sets the Content-Type to "application/json" unless overridden.
+//
+// Example:
+//
+//	return c.SendPrettyJSON(data)
+func (c *Context) SendPrettyJSON(value any, ctype ...string) error {
+	contentType := "application/json"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+
+	bytes, err := c.Zeno().zeno.JsonPrettyEncoder(value)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
+	}
+	return c.SendBytes(bytes)
+}
+
+// SendSecureJSON encodes the value as JSON and adds a prefix to arrays
+// to prevent JSON hijacking vulnerabilities in legacy browsers.
+// The prefix (default: `while(1);`) is configured via Zeno().SecureJSONPrefix.
+//
+// Example:
+//
+//	return c.SendSecureJSON(data)
+func (c *Context) SendSecureJSON(value any, ctype ...string) error {
+	contentType := "application/json"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+
+	b, err := c.Zeno().JsonEncoder(value)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError,
+			"Failed to encode JSON: "+err.Error())
+	}
+
+	//  If the payload starts with “[”, add the prefix
+	trimmed := bytes.TrimLeft(b, " \t\r\n")
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		b = append([]byte(c.Zeno().SecureJSONPrefix), b...)
+	}
+
+	return c.SendBytes(b)
 }

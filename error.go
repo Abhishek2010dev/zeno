@@ -35,187 +35,44 @@ func (e *httpError) Error() string { return e.Message }
 // was created.
 func (e *httpError) StatusCode() int { return e.Status }
 
-// choose returns a predefined “zero‑alloc” error when msg is omitted
-// or a brand‑new HTTPError carrying the custom text when provided.
-func choose(def HTTPError, status int, msg ...string) HTTPError {
-	if len(msg) == 0 {
-		return def
-	}
-	return NewHTTPError(status, msg[0])
-}
-
-//
-// ---------------------------------------------------------------------------
-// Pre‑allocated default errors (zero allocations per use)
-// ---------------------------------------------------------------------------
-//
-
 var (
 	// 4xx
-	DefaultBadRequest                  = NewHTTPError(StatusBadRequest)
-	DefaultUnauthorized                = NewHTTPError(StatusUnauthorized)
-	DefaultPaymentRequired             = NewHTTPError(StatusPaymentRequired)
-	DefaultForbidden                   = NewHTTPError(StatusForbidden)
-	DefaultNotFound                    = NewHTTPError(StatusNotFound)
-	DefaultMethodNotAllowed            = NewHTTPError(StatusMethodNotAllowed)
-	DefaultNotAcceptable               = NewHTTPError(StatusNotAcceptable)
-	DefaultProxyAuthRequired           = NewHTTPError(StatusProxyAuthRequired)
-	DefaultRequestTimeout              = NewHTTPError(StatusRequestTimeout)
-	DefaultConflict                    = NewHTTPError(StatusConflict)
-	DefaultGone                        = NewHTTPError(StatusGone)
-	DefaultLengthRequired              = NewHTTPError(StatusLengthRequired)
-	DefaultPreconditionFailed          = NewHTTPError(StatusPreconditionFailed)
-	DefaultRequestEntityTooLarge       = NewHTTPError(StatusRequestEntityTooLarge)
-	DefaultRequestURITooLong           = NewHTTPError(StatusRequestURITooLong)
-	DefaultUnsupportedMediaType        = NewHTTPError(StatusUnsupportedMediaType)
-	DefaultRangeNotSatisfiable         = NewHTTPError(StatusRequestedRangeNotSatisfiable)
-	DefaultExpectationFailed           = NewHTTPError(StatusExpectationFailed)
-	DefaultTeapot                      = NewHTTPError(StatusTeapot)
-	DefaultTooManyRequests             = NewHTTPError(StatusTooManyRequests)
-	DefaultRequestHeaderFieldsTooLarge = NewHTTPError(StatusRequestHeaderFieldsTooLarge)
-	DefaultUnavailableForLegalReasons  = NewHTTPError(StatusUnavailableForLegalReasons)
+	ErrBadRequest                  = NewHTTPError(StatusBadRequest)
+	ErrUnauthorized                = NewHTTPError(StatusUnauthorized)
+	ErrPaymentRequired             = NewHTTPError(StatusPaymentRequired)
+	ErrForbidden                   = NewHTTPError(StatusForbidden)
+	ErrNotFound                    = NewHTTPError(StatusNotFound)
+	ErrMethodNotAllowed            = NewHTTPError(StatusMethodNotAllowed)
+	ErrNotAcceptable               = NewHTTPError(StatusNotAcceptable)
+	ErrProxyAuthRequired           = NewHTTPError(StatusProxyAuthRequired)
+	ErrRequestTimeout              = NewHTTPError(StatusRequestTimeout)
+	ErrConflict                    = NewHTTPError(StatusConflict)
+	ErrGone                        = NewHTTPError(StatusGone)
+	ErrLengthRequired              = NewHTTPError(StatusLengthRequired)
+	ErrPreconditionFailed          = NewHTTPError(StatusPreconditionFailed)
+	ErrRequestEntityTooLarge       = NewHTTPError(StatusRequestEntityTooLarge)
+	ErrRequestURITooLong           = NewHTTPError(StatusRequestURITooLong)
+	ErrUnsupportedMediaType        = NewHTTPError(StatusUnsupportedMediaType)
+	ErrRangeNotSatisfiable         = NewHTTPError(StatusRequestedRangeNotSatisfiable)
+	ErrExpectationFailed           = NewHTTPError(StatusExpectationFailed)
+	ErrTeapot                      = NewHTTPError(StatusTeapot)
+	ErrTooManyRequests             = NewHTTPError(StatusTooManyRequests)
+	ErrRequestHeaderFieldsTooLarge = NewHTTPError(StatusRequestHeaderFieldsTooLarge)
+	ErrUnavailableForLegalReasons  = NewHTTPError(StatusUnavailableForLegalReasons)
 
 	// 5xx
-	DefaultInternalServerError           = NewHTTPError(StatusInternalServerError)
-	DefaultNotImplemented                = NewHTTPError(StatusNotImplemented)
-	DefaultBadGateway                    = NewHTTPError(StatusBadGateway)
-	DefaultServiceUnavailable            = NewHTTPError(StatusServiceUnavailable)
-	DefaultGatewayTimeout                = NewHTTPError(StatusGatewayTimeout)
-	DefaultHTTPVersionNotSupported       = NewHTTPError(StatusHTTPVersionNotSupported)
-	DefaultVariantAlsoNegotiates         = NewHTTPError(StatusVariantAlsoNegotiates)
-	DefaultInsufficientStorage           = NewHTTPError(StatusInsufficientStorage)
-	DefaultLoopDetected                  = NewHTTPError(StatusLoopDetected)
-	DefaultNotExtended                   = NewHTTPError(StatusNotExtended)
-	DefaultNetworkAuthenticationRequired = NewHTTPError(StatusNetworkAuthenticationRequired)
+	ErrInternalServer                = NewHTTPError(StatusInternalServerError)
+	ErrNotImplemented                = NewHTTPError(StatusNotImplemented)
+	ErrBadGateway                    = NewHTTPError(StatusBadGateway)
+	ErrServiceUnavailable            = NewHTTPError(StatusServiceUnavailable)
+	ErrGatewayTimeout                = NewHTTPError(StatusGatewayTimeout)
+	ErrHTTPVersionNotSupported       = NewHTTPError(StatusHTTPVersionNotSupported)
+	ErrVariantAlsoNegotiates         = NewHTTPError(StatusVariantAlsoNegotiates)
+	ErrInsufficientStorage           = NewHTTPError(StatusInsufficientStorage)
+	ErrLoopDetected                  = NewHTTPError(StatusLoopDetected)
+	ErrNotExtended                   = NewHTTPError(StatusNotExtended)
+	ErrNetworkAuthenticationRequired = NewHTTPError(StatusNetworkAuthenticationRequired)
 )
-
-//
-// ---------------------------------------------------------------------------
-// Convenience constructors (optionally supply custom messages)
-// ---------------------------------------------------------------------------
-//
-
-// 4xx
-func ErrBadRequest(msg ...string) HTTPError {
-	return choose(DefaultBadRequest, StatusBadRequest, msg...)
-}
-
-func ErrUnauthorized(msg ...string) HTTPError {
-	return choose(DefaultUnauthorized, StatusUnauthorized, msg...)
-}
-
-func ErrPaymentRequired(msg ...string) HTTPError {
-	return choose(DefaultPaymentRequired, StatusPaymentRequired, msg...)
-}
-func ErrForbidden(msg ...string) HTTPError { return choose(DefaultForbidden, StatusForbidden, msg...) }
-func ErrNotFound(msg ...string) HTTPError  { return choose(DefaultNotFound, StatusNotFound, msg...) }
-func ErrMethodNotAllowed(msg ...string) HTTPError {
-	return choose(DefaultMethodNotAllowed, StatusMethodNotAllowed, msg...)
-}
-
-func ErrNotAcceptable(msg ...string) HTTPError {
-	return choose(DefaultNotAcceptable, StatusNotAcceptable, msg...)
-}
-
-func ErrProxyAuthRequired(msg ...string) HTTPError {
-	return choose(DefaultProxyAuthRequired, StatusProxyAuthRequired, msg...)
-}
-
-func ErrRequestTimeout(msg ...string) HTTPError {
-	return choose(DefaultRequestTimeout, StatusRequestTimeout, msg...)
-}
-func ErrConflict(msg ...string) HTTPError { return choose(DefaultConflict, StatusConflict, msg...) }
-func ErrGone(msg ...string) HTTPError     { return choose(DefaultGone, StatusGone, msg...) }
-func ErrLengthRequired(msg ...string) HTTPError {
-	return choose(DefaultLengthRequired, StatusLengthRequired, msg...)
-}
-
-func ErrPreconditionFailed(msg ...string) HTTPError {
-	return choose(DefaultPreconditionFailed, StatusPreconditionFailed, msg...)
-}
-
-func ErrRequestEntityTooLarge(msg ...string) HTTPError {
-	return choose(DefaultRequestEntityTooLarge, StatusRequestEntityTooLarge, msg...)
-}
-
-func ErrRequestURITooLong(msg ...string) HTTPError {
-	return choose(DefaultRequestURITooLong, StatusRequestURITooLong, msg...)
-}
-
-func ErrUnsupportedMediaType(msg ...string) HTTPError {
-	return choose(DefaultUnsupportedMediaType, StatusUnsupportedMediaType, msg...)
-}
-
-func ErrRangeNotSatisfiable(msg ...string) HTTPError {
-	return choose(DefaultRangeNotSatisfiable, StatusRequestedRangeNotSatisfiable, msg...)
-}
-
-func ErrExpectationFailed(msg ...string) HTTPError {
-	return choose(DefaultExpectationFailed, StatusExpectationFailed, msg...)
-}
-func ErrTeapot(msg ...string) HTTPError { return choose(DefaultTeapot, StatusTeapot, msg...) }
-func ErrTooManyRequests(msg ...string) HTTPError {
-	return choose(DefaultTooManyRequests, StatusTooManyRequests, msg...)
-}
-
-func ErrRequestHeaderFieldsTooLarge(msg ...string) HTTPError {
-	return choose(DefaultRequestHeaderFieldsTooLarge, StatusRequestHeaderFieldsTooLarge, msg...)
-}
-
-func ErrUnavailableForLegalReasons(msg ...string) HTTPError {
-	return choose(DefaultUnavailableForLegalReasons, StatusUnavailableForLegalReasons, msg...)
-}
-
-// 5xx
-func ErrInternalServer(msg ...string) HTTPError {
-	return choose(DefaultInternalServerError, StatusInternalServerError, msg...)
-}
-
-func ErrNotImplemented(msg ...string) HTTPError {
-	return choose(DefaultNotImplemented, StatusNotImplemented, msg...)
-}
-
-func ErrBadGateway(msg ...string) HTTPError {
-	return choose(DefaultBadGateway, StatusBadGateway, msg...)
-}
-
-func ErrServiceUnavailable(msg ...string) HTTPError {
-	return choose(DefaultServiceUnavailable, StatusServiceUnavailable, msg...)
-}
-
-func ErrGatewayTimeout(msg ...string) HTTPError {
-	return choose(DefaultGatewayTimeout, StatusGatewayTimeout, msg...)
-}
-
-func ErrHTTPVersionNotSupported(msg ...string) HTTPError {
-	return choose(DefaultHTTPVersionNotSupported, StatusHTTPVersionNotSupported, msg...)
-}
-
-func ErrVariantAlsoNegotiates(msg ...string) HTTPError {
-	return choose(DefaultVariantAlsoNegotiates, StatusVariantAlsoNegotiates, msg...)
-}
-
-func ErrInsufficientStorage(msg ...string) HTTPError {
-	return choose(DefaultInsufficientStorage, StatusInsufficientStorage, msg...)
-}
-
-func ErrLoopDetected(msg ...string) HTTPError {
-	return choose(DefaultLoopDetected, StatusLoopDetected, msg...)
-}
-
-func ErrNotExtended(msg ...string) HTTPError {
-	return choose(DefaultNotExtended, StatusNotExtended, msg...)
-}
-
-func ErrNetworkAuthenticationRequired(msg ...string) HTTPError {
-	return choose(DefaultNetworkAuthenticationRequired, StatusNetworkAuthenticationRequired, msg...)
-}
-
-//
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-//
 
 // IsHTTPError reports whether err conforms to the HTTPError interface.
 func IsHTTPError(err error) bool {

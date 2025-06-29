@@ -51,13 +51,32 @@ type Zeno struct {
 
 	// Use SO_REUSEPORT for multiple listeners on same port
 	useReusePort bool
+
+	// JsonDecoder is the default function used to decode a JSON payload from the request body.
+	// It should unmarshal the input into the given target interface.
+	JsonDecoder DecoderFunc
+
+	// JsonEncoder is the default function used to encode a response value into JSON format.
+	// It should marshal the given value and write it to the response.
+	JsonEncoder EncoderFunc
+
+	// JsonPrettyEncoder is the default function used to encode a response value into
+	// human-readable (pretty-formatted) JSON. It is typically used for development or
+	// debugging purposes, where readability is preferred over compactness.
+	JsonPrettyEncoder EncoderFunc
+
+	SecureJSONPrefix string
 }
 
 // New creates and returns a new Zeno instance with default settings,
 // initializes route trees, not found handlers, and context pooling.
 func New() *Zeno {
 	z := &Zeno{
-		routes: make(map[string]*Route),
+		routes:            make(map[string]*Route),
+		JsonDecoder:       jsonDecoder,
+		JsonEncoder:       jsonEncoder,
+		JsonPrettyEncoder: jsonPrettyEncoder,
+		SecureJSONPrefix:  "while(1);",
 	}
 	z.RouteGroup = *NewRouteGroup("", z, nil)
 	z.pool.New = func() interface{} {
@@ -141,12 +160,22 @@ func (z *Zeno) findAllowedMethods(path []byte) map[string]bool {
 // executes the handler chain, and handles any returned errors.
 func (z *Zeno) HandleRequest(ctx *fasthttp.RequestCtx) {
 	c := z.pool.Get().(*Context)
+	defer z.pool.Put(c)
+
 	c.init(ctx)
 	c.handlers, c.pnames = z.find(z.toString(ctx.Method()), ctx.Path(), c.pvalues)
+
 	if err := c.Next(); err != nil {
-		z.ErrorHandler(c, err)
+		// Call error handler if set
+		if z.ErrorHandler != nil {
+			if handleErr := z.ErrorHandler(c, err); handleErr != nil {
+				c.SendStatusCode(StatusInternalServerError)
+			}
+		} else {
+			// Fallback to default error response if no error handler is defined
+			c.SendStatusCode(StatusInternalServerError)
+		}
 	}
-	z.pool.Put(c)
 }
 
 // add registers a route in the routing tree for the given HTTP method.
@@ -214,7 +243,7 @@ func (z *Zeno) setTreeForMethod(method string, t *tree) {
 
 // NotFoundHandler is the default fallback handler that returns 404.
 func NotFoundHandler(*Context) error {
-	return DefaultNotFound
+	return ErrNotFound
 }
 
 // MethodNotAllowedHandler builds and sets the "Allow" header when
