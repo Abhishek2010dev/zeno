@@ -1,12 +1,14 @@
 package zeno
 
 import (
+	"encoding/xml"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"unsafe"
 
+	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
 )
@@ -52,31 +54,58 @@ type Zeno struct {
 	// Use SO_REUSEPORT for multiple listeners on same port
 	useReusePort bool
 
-	// JsonDecoder is the default function used to decode a JSON payload from the request body.
-	// It should unmarshal the input into the given target interface.
+	// JsonDecoder is the default function used to decode a JSON payload
+	// from the request body. It should unmarshal the byte slice into
+	// the target Go value. A typical implementation uses json.Unmarshal
+	// or a high-performance alternative such as sonic or jsoniter.
 	JsonDecoder DecoderFunc
 
-	// JsonEncoder is the default function used to encode a response value into JSON format.
-	// It should marshal the given value and write it to the response.
+	// JsonEncoder is the default function used to encode a Go value into
+	// JSON format. It should return the marshaled byte slice that can be
+	// directly written to the response. Set the "Content-Type" to
+	// "application/json" before sending the bytes.
 	JsonEncoder EncoderFunc
 
-	// JsonPrettyEncoder is the default function used to encode a response value into
-	// human-readable (pretty-formatted) JSON. It is typically used for development or
-	// debugging purposes, where readability is preferred over compactness.
-	JsonPrettyEncoder EncoderFunc
+	// JsonIndent is an optional function used to pretty-print JSON output.
+	// It takes a Go value, prefix, and indent string to format the output
+	// for better readability. Typically wraps json.MarshalIndent or similar.
+	JsonIndent IndentFunc
 
+	// SecureJSONPrefix is a string prepended to all JSON responses
+	// to prevent JSON Hijacking attacks. Common value: "while(1);"
+	// If set, all JSON responses will begin with this prefix.
 	SecureJSONPrefix string
+
+	// XmlDecoder is the default function used to decode an XML payload
+	// from the request body. It should unmarshal the byte slice into
+	// the target Go value. Typically wraps encoding/xml.Unmarshal or
+	// a faster XML decoder.
+	XmlDecoder DecoderFunc
+
+	// XmlEncoder is the default function used to encode a Go value into
+	// XML format. It should return the marshaled byte slice that can be
+	// written directly to the response. You should set the
+	// "Content-Type" to "application/xml" or "text/xml" before writing.
+	XmlEncoder EncoderFunc
+
+	// XmlIndent is an optional function used to pretty-print XML output.
+	// It takes a Go value, prefix, and indent string to format the output.
+	// Usually wraps xml.MarshalIndent or any compatible alternative.
+	XmlIndent IndentFunc
 }
 
 // New creates and returns a new Zeno instance with default settings,
 // initializes route trees, not found handlers, and context pooling.
 func New() *Zeno {
 	z := &Zeno{
-		routes:            make(map[string]*Route),
-		JsonDecoder:       jsonDecoder,
-		JsonEncoder:       jsonEncoder,
-		JsonPrettyEncoder: jsonPrettyEncoder,
-		SecureJSONPrefix:  "while(1);",
+		routes:           make(map[string]*Route),
+		JsonDecoder:      sonic.Unmarshal,
+		JsonEncoder:      sonic.Marshal,
+		JsonIndent:       sonic.MarshalIndent,
+		XmlEncoder:       xml.Marshal,
+		XmlDecoder:       xml.Unmarshal,
+		XmlIndent:        xml.MarshalIndent,
+		SecureJSONPrefix: "while(1);",
 	}
 	z.RouteGroup = *NewRouteGroup("", z, nil)
 	z.pool.New = func() interface{} {

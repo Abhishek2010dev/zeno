@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bytedance/sonic"
 	"github.com/valyala/fasthttp"
 )
 
@@ -596,13 +597,29 @@ func (c *Context) SendJSONP(value any, callback ...string) error {
 //
 //	return c.SendPrettyJSON(data)
 func (c *Context) SendPrettyJSON(value any, ctype ...string) error {
+	return c.SendJSONIndent(value, " ", " ", ctype...)
+}
+
+// SendJSONIndent encodes the given value as indented (pretty-formatted) JSON
+// using the specified prefix and indent strings. It writes the result to the response.
+//
+// This is useful for debugging or generating human-readable JSON output with custom formatting.
+//
+// It sets the Content-Type to "application/json" unless overridden by the optional ctype.
+//
+// Example:
+//
+//	err := c.SendJSONIndent(data, "", "  ") // pretty JSON with 2-space indent
+//
+//	err := c.SendJSONIndent(data, "--", ">>", "application/vnd.api+json")
+func (c *Context) SendJSONIndent(value any, prefix, indent string, ctype ...string) error {
 	contentType := "application/json"
 	if len(ctype) > 0 {
 		contentType = ctype[0]
 	}
 	c.SetContentType(contentType)
 
-	bytes, err := c.Zeno().zeno.JsonPrettyEncoder(value)
+	bytes, err := sonic.MarshalIndent(value, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, "Failed to encode JSON: "+err.Error())
 	}
@@ -636,4 +653,82 @@ func (c *Context) SendSecureJSON(value any, ctype ...string) error {
 	}
 
 	return c.SendBytes(b)
+}
+
+// SendXML encodes the given value as XML and writes it to the response.
+//
+// It sets the Content-Type to "application/xml; charset=utf-8" unless overridden
+// via an optional parameter.
+//
+// Example:
+//
+//	type User struct {
+//	    Name string `xml:"name"`
+//	}
+//
+//	return c.SendXML(User{Name: "Alice"})
+func (c *Context) SendXML(value any, ctype ...string) error {
+	contentType := "application/xml; charset=utf-8"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+
+	b, err := c.Zeno().XmlEncoder(value)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError,
+			"Failed to encode XML: "+err.Error())
+	}
+
+	return c.SendBytes(b)
+}
+
+// SendXMLIndent encodes the given value as indented (pretty-formatted) XML
+// and writes it to the response.
+//
+// It sets the Content-Type to "application/xml; charset=utf-8" unless overridden.
+// This is useful for development or human-readable output.
+//
+// Example:
+//
+//	type User struct {
+//	    Name string `xml:"name"`
+//	}
+//
+//	return c.SendXMLIndent(User{Name: "Alice"}, "", "  ")
+func (c *Context) SendXMLIndent(value any, prefix, indent string, ctype ...string) error {
+	contentType := "application/xml; charset=utf-8"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+
+	b, err := c.Zeno().XmlIndent(value, prefix, indent)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError,
+			"Failed to encode XML: "+err.Error())
+	}
+
+	return c.SendBytes(b)
+}
+
+// BindXML decodes the request body as XML into the provided destination object.
+//
+// It returns a 400 error if the body is empty or if the XML is malformed.
+//
+// Example:
+//
+//	var user User
+//	if err := c.BindXML(&user); err != nil {
+//	    return err
+//	}
+func (c *Context) BindXML(out any) error {
+	body := c.PostBody()
+	if len(body) == 0 {
+		return NewHTTPError(StatusBadRequest, "Request body is empty")
+	}
+	if err := c.Zeno().XmlDecoder(body, out); err != nil {
+		return NewHTTPError(StatusBadRequest, "Invalid XML: "+err.Error())
+	}
+	return nil
 }
