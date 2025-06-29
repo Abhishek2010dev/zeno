@@ -860,3 +860,62 @@ func (c *Context) SendTOML(v any, ctype ...string) error {
 	}
 	return c.SendBytes(bytes)
 }
+
+// BindCBOR reads the request body, decodes it as CBOR, and stores the
+// result in out.
+//
+// The decoder is the CborDecoder configured on the parent *Zeno* instance.
+// A 400 Bad Request error is returned if the body is empty or the data
+// cannot be decoded.
+//
+// Example:
+//
+//	var input map[string]any
+//	if err := c.BindCBOR(&input); err != nil {
+//	    c.Logger().Error(err)
+//	    return
+//	}
+func (c *Context) BindCBOR(out any) error {
+	body := c.PostBody()
+	if len(body) == 0 {
+		return NewHTTPError(StatusBadRequest, "Request body is empty")
+	}
+	if err := c.Zeno().CborDecoder(body, out); err != nil {
+		return NewHTTPError(StatusBadRequest, "Invalid CBOR: "+err.Error())
+	}
+	return nil
+}
+
+// SendCBOR encodes v as CBOR and writes it to the response.
+//
+// It sets the Content-Type to "application/cbor" unless a custom value
+// is provided via ctype. A 500 Internal Server Error is returned if
+// encoding fails.
+//
+// Example:
+//
+//	output := map[string]any{
+//	    "ok": true,
+//	    "ts": time.Now().Unix(),
+//	}
+//	if err := c.SendCBOR(output); err != nil {
+//	    c.Logger().Error(err)
+//	}
+//
+// To override the default content type:
+//
+//	if err := c.SendCBOR(output, "application/x-cbor"); err != nil {
+//	    ...
+//	}
+func (c *Context) SendCBOR(v any, ctype ...string) error {
+	contentType := "application/cbor"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
+	c.SetContentType(contentType)
+	bytes, err := c.Zeno().CborEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "Failed to encode CBOR: "+err.Error())
+	}
+	return c.SendBytes(bytes)
+}
