@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/valyala/fasthttp"
 )
@@ -25,6 +26,7 @@ type Context struct {
 	pvalues  []string
 	index    int
 	handlers []Handler
+	data     sync.Map
 }
 
 // Next executes the next handler in the middleware chain.
@@ -96,6 +98,39 @@ func (c *Context) Param(name string, defaultValue ...string) string {
 	return ""
 }
 
+// Param returns the value of the route parameter *name* converted to type *T*.
+//
+// It works like this:
+//
+//   - If *name* exists in the current request’s path parameters, its raw
+//     string is passed to toType[T] for conversion.
+//   - If the parameter is missing or empty, and a *defaultValue* is provided,
+//     the first default value is returned instead.
+//   - If conversion fails, Param returns the zero value of T.
+//     (toType never panics and never returns an error.)
+//
+// Example:
+//
+//	// Route: /users/{id}/{slug?}
+//	id   := zeno.Param[int](ctx, "id")              // → 42
+//	slug := zeno.Param[string](ctx, "slug", "anon") // → "anon" if slug is missing
+//	page := zeno.Param[int](ctx, "page", 1)         // → 1 if page is missing
+//
+// Param is a free function (not a Context method) because Go forbids generic
+// methods on non-generic types. Keep it in the same package as *Context* so
+// users can call it concisely:
+//
+//	import "zeno"
+//
+//	id := zeno.Param[int](ctx, "id")
+func Param[T any](c *Context, name string, defaultValue ...T) T {
+	raw := c.Param(name)
+	if raw == "" && len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return toType[T](raw)
+}
+
 // Params returns a map of all route parameters.
 func (c *Context) Params() map[string]string {
 	params := map[string]string{}
@@ -122,6 +157,39 @@ func (c *Context) Query(key string, defaultValue ...string) string {
 		return defaultValue[0]
 	}
 	return c.zeno.toString(val)
+}
+
+// Query returns the value of the query parameter *name* converted to type *T*.
+//
+// It works like this:
+//
+//   - If *name* exists in the current request’s query string, its raw
+//     string is passed to toType[T] for conversion.
+//   - If the parameter is missing or empty, and a *defaultValue* is provided,
+//     the first default value is returned instead.
+//   - If conversion fails, Query returns the zero value of T.
+//     (toType never panics and never returns an error.)
+//
+// Example:
+//
+//	// Request: /search?q=books&page=2
+//	q    := zeno.Query[string](ctx, "q")           // → "books"
+//	page := zeno.Query[int](ctx, "page", 1)        // → 2
+//	limit := zeno.Query[int](ctx, "limit", 10)     // → 10 if not set
+//
+// Query is a free function (not a Context method) because Go forbids generic
+// methods on non-generic types. Keep it in the same package as *Context* so
+// users can call it concisely:
+//
+//	import "zeno"
+//
+//	page := zeno.Query[int](ctx, "page", 1)
+func Query[T any](c *Context, name string, defaultValue ...T) T {
+	raw := c.Query(name)
+	if raw == "" && len(defaultValue) > 0 {
+		return defaultValue[0]
+	}
+	return toType[T](raw)
 }
 
 // QueryArray returns all query values for a given key.
