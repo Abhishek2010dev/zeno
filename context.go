@@ -18,8 +18,8 @@ import (
 // It holds request and response data, route parameters, and provides
 // convenience methods for handling various aspects of the request lifecycle.
 type Context struct {
-	// RequestCtx is the underlying fasthttp request context.
-	RequestCtx *fasthttp.RequestCtx
+	// ctx is the underlying fasthttp request context.
+	ctx *fasthttp.RequestCtx
 
 	zeno     *Zeno
 	pnames   []string
@@ -54,9 +54,9 @@ func (c *Context) URL(route string, pairs ...any) string {
 	return ""
 }
 
-// init prepares the context with a new fasthttp.RequestCtx.
+// init prepares the context with a new fasthttp.ctx.
 func (c *Context) init(ctx *fasthttp.RequestCtx) {
-	c.RequestCtx = ctx
+	c.ctx = ctx
 	c.index = -1
 }
 
@@ -67,13 +67,13 @@ func (c *Context) Zeno() *Zeno {
 
 // Status sets the HTTP status code for the response.
 func (c *Context) Status(code int) *Context {
-	c.RequestCtx.SetStatusCode(code)
+	c.ctx.SetStatusCode(code)
 	return c
 }
 
 // SendString writes a plain text response body.
 func (c *Context) SendString(value string) error {
-	c.RequestCtx.Response.SetBodyString(value)
+	c.ctx.Response.SetBodyString(value)
 	return nil
 }
 
@@ -152,7 +152,7 @@ func (c *Context) Params() map[string]string {
 //	name := ctx.Query("name")                   // returns "" if not found
 //	name := ctx.Query("name", "default-name")   // returns "default-name" if not found
 func (c *Context) Query(key string, defaultValue ...string) string {
-	val := c.RequestCtx.QueryArgs().Peek(key)
+	val := c.ctx.QueryArgs().Peek(key)
 	if len(val) == 0 && len(defaultValue) > 0 {
 		return defaultValue[0]
 	}
@@ -194,7 +194,7 @@ func Query[T any](c *Context, name string, defaultValue ...T) T {
 
 // QueryArray returns all query values for a given key.
 func (c *Context) QueryArray(key string) []string {
-	args := c.RequestCtx.QueryArgs().PeekMulti(key)
+	args := c.ctx.QueryArgs().PeekMulti(key)
 	arr := make([]string, len(args))
 	for i, b := range args {
 		arr[i] = c.zeno.toString(b)
@@ -205,7 +205,7 @@ func (c *Context) QueryArray(key string) []string {
 // QueryMap returns all query parameters as a map.
 func (c *Context) QueryMap() map[string]string {
 	m := map[string]string{}
-	c.RequestCtx.QueryArgs().VisitAll(func(key, value []byte) {
+	c.ctx.QueryArgs().VisitAll(func(key, value []byte) {
 		m[c.zeno.toString(key)] = c.zeno.toString(value)
 	})
 	return m
@@ -213,17 +213,17 @@ func (c *Context) QueryMap() map[string]string {
 
 // Method returns the HTTP method of the request.
 func (c *Context) Method() string {
-	return c.zeno.toString(c.RequestCtx.Method())
+	return c.zeno.toString(c.ctx.Method())
 }
 
 // Path returns the request URL path.
 func (c *Context) Path() string {
-	return c.zeno.toString(c.RequestCtx.Path())
+	return c.zeno.toString(c.ctx.Path())
 }
 
 // Port returns the remote port from the client's address.
 func (c *Context) Port() string {
-	_, port, err := net.SplitHostPort(c.RequestCtx.RemoteAddr().String())
+	_, port, err := net.SplitHostPort(c.ctx.RemoteAddr().String())
 	if err != nil {
 		return ""
 	}
@@ -232,7 +232,7 @@ func (c *Context) Port() string {
 
 // IP returns the remote IP address of the client.
 func (c *Context) IP() string {
-	return c.RequestCtx.RemoteIP().String()
+	return c.ctx.RemoteIP().String()
 }
 
 // GetForwardedIPs returns a slice of IPs from the X-Forwarded-For header.
@@ -250,12 +250,12 @@ func (c *Context) GetForwardedIPs() []string {
 
 // GetHeader returns the value of the specified request header.
 func (c *Context) GetHeader(key string) string {
-	return c.zeno.toString(c.RequestCtx.Request.Header.Peek(key))
+	return c.zeno.toString(c.ctx.Request.Header.Peek(key))
 }
 
 // SetHeader sets the HTTP response header with the given key and value.
 func (c *Context) SetHeader(key, value string) {
-	c.RequestCtx.Response.Header.Set(key, value)
+	c.ctx.Response.Header.Set(key, value)
 }
 
 // RealIP returns the client's real IP address, considering X-Forwarded-For.
@@ -273,7 +273,7 @@ func (c *Context) RealIP() string {
 // HeaderMap returns all request headers as a map.
 func (c *Context) HeaderMap() map[string]string {
 	m := map[string]string{}
-	c.RequestCtx.Request.Header.VisitAll(func(key, value []byte) {
+	c.ctx.Request.Header.VisitAll(func(key, value []byte) {
 		m[c.zeno.toString(key)] = c.zeno.toString(value)
 	})
 	return m
@@ -281,7 +281,7 @@ func (c *Context) HeaderMap() map[string]string {
 
 // FormValue returns the value of a form field or a default if not present.
 func (c *Context) FormValue(key string, defaultValue ...string) string {
-	val := c.RequestCtx.FormValue(key)
+	val := c.ctx.FormValue(key)
 	if len(val) == 0 && len(defaultValue) > 0 {
 		return defaultValue[0]
 	}
@@ -290,22 +290,22 @@ func (c *Context) FormValue(key string, defaultValue ...string) string {
 
 // FormFile returns the uploaded file header for the given form key.
 func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
-	return c.RequestCtx.FormFile(key)
+	return c.ctx.FormFile(key)
 }
 
 // MultipartForm returns the parsed multipart form data.
 func (c *Context) MultipartForm() (*multipart.Form, error) {
-	return c.RequestCtx.MultipartForm()
+	return c.ctx.MultipartForm()
 }
 
 // Body returns the raw request body.
 func (c *Context) Body() []byte {
-	return c.RequestCtx.Request.Body()
+	return c.ctx.Request.Body()
 }
 
 // PostBody returns the POST request body.
 func (c *Context) PostBody() []byte {
-	return c.RequestCtx.PostBody()
+	return c.ctx.PostBody()
 }
 
 // IsAJAX returns true if the request was made via AJAX.
@@ -391,12 +391,12 @@ func (c *Context) AcceptsLanguage(offers ...string) string {
 
 // Protocol returns the request protocol version (e.g., HTTP/1.1).
 func (c *Context) Protocol() string {
-	return c.zeno.toString(c.RequestCtx.Request.Header.Protocol())
+	return c.zeno.toString(c.ctx.Request.Header.Protocol())
 }
 
 // Scheme returns the request scheme, "http" or "https".
 func (c *Context) Scheme() string {
-	if c.RequestCtx.IsTLS() {
+	if c.ctx.IsTLS() {
 		return "https"
 	}
 	return "http"
@@ -404,7 +404,7 @@ func (c *Context) Scheme() string {
 
 // IsSecure returns true if the request is over HTTPS.
 func (c *Context) IsSecure() bool {
-	return c.RequestCtx.IsTLS()
+	return c.ctx.IsTLS()
 }
 
 // HTTPRange represents a parsed byte range from the Range header.
@@ -515,7 +515,7 @@ func max(a, b int64) int64 {
 //	    // handle error
 //	}
 func (c *Context) SendBytes(b []byte) error {
-	c.RequestCtx.Response.SetBodyRaw(b)
+	c.ctx.Response.SetBodyRaw(b)
 	return nil
 }
 
@@ -527,8 +527,8 @@ func (c *Context) SendBytes(b []byte) error {
 //
 //	ctx.SendStatusCode(fasthttp.StatusNoContent) // sets 204 No Content
 func (c *Context) SendStatusCode(code int) error {
-	c.RequestCtx.SetStatusCode(code)
-	if len(c.RequestCtx.Response.Body()) == 0 {
+	c.ctx.SetStatusCode(code)
+	if len(c.ctx.Response.Body()) == 0 {
 		return c.SendString(StatusMessage(code))
 	}
 	return nil
@@ -561,7 +561,7 @@ func (c *Context) SendHTML(value string) error {
 
 // SendFile streams the file located at the specified path to the client.
 //
-// This method uses fasthttp’s zero-copy `RequestCtx.SendFile` under the hood,
+// This method uses fasthttp’s zero-copy `ctx.SendFile` under the hood,
 // allowing the operating system to send the file directly from disk to the socket
 // without copying it to user space. This results in high performance and low memory usage.
 //
@@ -575,7 +575,7 @@ func (c *Context) SendHTML(value string) error {
 //
 //	err := ctx.SendFile("static/image.png")
 func (c *Context) SendFile(path string) error {
-	c.RequestCtx.SendFile(path)
+	c.ctx.SendFile(path)
 	return nil
 }
 
@@ -1017,11 +1017,43 @@ func (c *Context) Redirect(url string, code ...int) error {
 	if len(code) > 0 {
 		status = code[0]
 	}
-	c.RequestCtx.Redirect(url, status)
+	c.ctx.Redirect(url, status)
 	return nil
 }
 
 // Host returns the host part of the request, from the Host header.
 func (c *Context) Host() string {
-	return c.zeno.toString(c.RequestCtx.Host())
+	return c.zeno.toString(c.ctx.Host())
+}
+
+// WriteString writes the given string `s` to the response body.
+//
+// It is a shortcut to fasthttp.RequestCtx.WriteString and sets the appropriate
+// Content-Length header. Returns the number of bytes written and any error encountered.
+func (c *Context) WriteString(s string) (int, error) {
+	return c.ctx.WriteString(s)
+}
+
+// Request returns the underlying *fasthttp.Request object.
+//
+// You can use it to access low-level request information such as headers,
+// URI, body, method, and more.
+func (c *Context) Request() *fasthttp.Request {
+	return &c.ctx.Request
+}
+
+// Response returns the underlying *fasthttp.Response object.
+//
+// It allows you to inspect or modify the response before it is sent to the client,
+// including headers, status code, and body.
+func (c *Context) Response() *fasthttp.Response {
+	return &c.ctx.Response
+}
+
+// RequestCtx returns the underlying *fasthttp.RequestCtx.
+//
+// This provides direct access to the full fasthttp context if you need
+// lower-level control over the request and response handling.
+func (c *Context) RequestCtx() *fasthttp.RequestCtx {
+	return c.ctx
 }

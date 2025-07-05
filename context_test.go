@@ -28,9 +28,9 @@ func newTestContext(method, uri string, headers map[string]string, body []byte) 
 	z := New()
 
 	c := &Context{
-		RequestCtx: ctxNative,
-		zeno:       z,
-		index:      -1,
+		ctx:   ctxNative,
+		zeno:  z,
+		index: -1,
 	}
 	return c, ctxNative
 }

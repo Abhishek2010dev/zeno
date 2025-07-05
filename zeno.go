@@ -329,7 +329,7 @@ func NotFoundHandler(*Context) error {
 // a route exists for the path but not for the method. If the request
 // method is not OPTIONS, it returns 405 Method Not Allowed.
 func MethodNotAllowedHandler(c *Context) error {
-	methods := c.Zeno().findAllowedMethods(c.RequestCtx.Path())
+	methods := c.Zeno().findAllowedMethods(c.ctx.Path())
 	if len(methods) == 0 {
 		return nil
 	}
@@ -339,9 +339,9 @@ func MethodNotAllowedHandler(c *Context) error {
 		ms = append(ms, m)
 	}
 	sort.Strings(ms)
-	c.RequestCtx.Response.Header.Set("Allow", strings.Join(ms, ", "))
-	if string(c.RequestCtx.Method()) != "OPTIONS" {
-		c.RequestCtx.Response.SetStatusCode(http.StatusMethodNotAllowed)
+	c.ctx.Response.Header.Set("Allow", strings.Join(ms, ", "))
+	if c.Method() != "OPTIONS" {
+		c.ctx.Response.SetStatusCode(http.StatusMethodNotAllowed)
 	}
 	c.Abort()
 	return nil
