@@ -559,22 +559,21 @@ func (c *Context) SendHTML(value string) error {
 	return c.SendString(value)
 }
 
-// SendFile streams the file located at path to the client.
+// SendFile streams the file located at the specified path to the client.
 //
-// It uses fasthttp’s zero‑copy RequestCtx.SendFile under the hood, allowing the
-// kernel to send the file directly from disk to the socket for maximal
-// performance.  The Content‑Type header is inferred from the file extension
-// via fasthttp’s built‑in MIME database.
+// This method uses fasthttp’s zero-copy `RequestCtx.SendFile` under the hood,
+// allowing the operating system to send the file directly from disk to the socket
+// without copying it to user space. This results in high performance and low memory usage.
 //
-// SendFile always returns nil because any I/O errors are already handled by
-// fasthttp and reflected in the HTTP response it writes.  If you need to
-// inspect those errors programmatically, call ctx.RequestCtx.SendFile
-// directly and check the returned error.
+// The Content-Type header is automatically set based on the file’s extension using
+// fasthttp’s internal MIME type detection.
+//
+// Any I/O errors encountered during file transmission are handled internally by fasthttp,
+// and thus SendFile always returns nil.
 //
 // Example:
 //
-//	// Deliver a static asset.
-//	_ = ctx.SendFile("./public/index.html")
+//	err := ctx.SendFile("static/image.png")
 func (c *Context) SendFile(path string) error {
 	c.RequestCtx.SendFile(path)
 	return nil
